@@ -1,0 +1,28 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewModels="clr-namespace:OpenCVDemo.ViewModels"
+             x:Class="OpenCVDemo.VideoProcessingPage"
+             mc:Ignorable="d">
+    <ContentPage.Content>
+        <d:ContentPage.BindingContext>
+            <viewModels:VideoProcessingViewModel />
+        </d:ContentPage.BindingContext>
+        <StackLayout>
+            <Button Text="Select File" Command="{Binding SelectFileCommand}" />
+            <Label Text="{Binding VideoFilePath}" />
+            <Button Text="Start Processing" Command="{Binding ProcessVideoCommand}" />
+            <ProgressBar Progress="{Binding ProgressPercent}"></ProgressBar>
+
+            <ListView ItemsSource="{Binding Detections}" SelectedItem="{Binding SelectedDetection}">
+
+            </ListView>
+
+            <!--<Image Source="{Binding SelectedDetection.Frame}" />-->
+
+        </StackLayout>
+    </ContentPage.Content>
+</ContentPage>
