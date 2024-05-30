@@ -54,9 +54,9 @@ public class VideoProcessingViewModel : INotifyPropertyChanged
 
     public async void ProcessVideo()
     {
-        //IsProcessing = true;
+        IsProcessing = true;
         Task.Run(() => _videoProcessingService.ProcessVideo(VideoFilePath));
-        //IsProcessing = false;
+        IsProcessing = false;
     }
 
     private async Task SelectFile()
@@ -83,17 +83,6 @@ public class VideoProcessingViewModel : INotifyPropertyChanged
         }
     }
 
-    public string ProcessingResult
-    {
-        get => _processingResult;
-        set
-        {
-            if (value == _processingResult) return;
-            _processingResult = value;
-            OnPropertyChanged();
-        }
-    }
-
     private ObservableCollection<Detection> _detections;
     public ObservableCollection<Detection> Detections
     {
@@ -109,6 +98,8 @@ public class VideoProcessingViewModel : INotifyPropertyChanged
     private void OnProgressChanged()
     {
         OnPropertyChanged(nameof(ProgressPercent));
+        OnPropertyChanged(nameof(FPS));
+        OnPropertyChanged(nameof(EstimatedTimeRemaining));
     }
 
     private void OnDetectionsChanged()
@@ -117,6 +108,16 @@ public class VideoProcessingViewModel : INotifyPropertyChanged
     }
 
     public decimal ProgressPercent => _videoProcessingService.ProgressPercent;
+    public decimal FPS => _videoProcessingService.Fps;
+
+    public TimeSpan EstimatedTimeRemaining
+    {
+        get
+        {
+            var framesRemaining = _videoProcessingService.LastFrame - _videoProcessingService.CurrentFrame;
+            return TimeSpan.FromTicks((long)(framesRemaining * _videoProcessingService.FrameTime.Ticks));
+        }
+    }
 
     public event PropertyChangedEventHandler? PropertyChanged;
 

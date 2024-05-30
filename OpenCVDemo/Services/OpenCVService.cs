@@ -8,20 +8,13 @@ using Size = OpenCvSharp.Size;
 
 namespace OpenCVDemo.Services;
 
-public interface ICVService
-{
-    Task ProcessVideo(string videoFilePath);
-    List<Detection> Detections { get; }
-    decimal ProgressPercent { get; }
-    event Action ProgressChanged;
-    event Action DetectionsCHanged;
-}
 
-public class OpenCvService : ICVService
+public class OpenCvService : IVideoProcessingService
 {
     private const string ModelPath = "frozen_east_text_detection.pb";
-    private int currentFrame = 0;
-    private int lastFrame = 1;
+    private int _currentFrame = 0;
+    private int _lastFrame = 1;
+    private TimeSpan _frameTime = TimeSpan.Zero;
 
     public OpenCvService()
     {
@@ -42,11 +35,16 @@ public class OpenCvService : ICVService
 
         CurrentFrame = 0;
         LastFrame = (int)video.FrameCount;
+        // Initialize the stopwatch
+        var stopwatch = new Stopwatch();
 
         // Process each frame of the video
         using var frame = new Mat();
         while (true)
         {
+            // Start the stopwatch
+            stopwatch.Start();
+
             var textRegions = new List<Rect>();
 
 
@@ -62,16 +60,16 @@ public class OpenCvService : ICVService
             Debug.WriteLine($@"Processing Frame {CurrentFrame} of {LastFrame} : {ProgressPercent}%");
 
             // Convert the frame to a blob to be used as input for the EAST model
-            var blob = CvDnn.BlobFromImage(frame, 1.0, new Size(320, 320), new Scalar(123.68, 116.78, 103.94), true, false);
+            var blob = CvDnn.BlobFromImage(frame, 1.0, new Size(320, 320), new Scalar(123.68, 116.78, 103.94), true,
+                false);
 
-           
+
             // Pass the blob through the network and obtain the detections and predictions
             net.SetInput(blob);
             net.SetPreferableBackend(Backend.OPENCV);
             net.SetPreferableTarget(Target.OPENCL);
             var scores = net.Forward("feature_fusion/Conv_7/Sigmoid");
             var geometry = net.Forward("feature_fusion/concat_3");
-
 
 
             var boxes = GetBoundingBoxes(frame, scores, geometry, 0.5f);
@@ -85,17 +83,28 @@ public class OpenCvService : ICVService
 
             // Release the blob to free up memory
             blob.Dispose();
+
+            stopwatch.Stop();
+
+            _frameTime = stopwatch.Elapsed;
+            // Calculate the frames per second
+            Fps = 1.0M / (decimal)stopwatch.Elapsed.TotalSeconds;
+
+            // Reset the stopwatch for the next frame
+            stopwatch.Reset();
         }
     }
 
     public List<Detection> Detections { get; private set; }
 
+    public decimal FPS { get; }
     public event Action ProgressChanged;
+    public event Action? DetectionsChanged;
     public event Action? DetectionsCHanged;
 
     public decimal ProgressPercent
     {
-        get => (decimal)CurrentFrame / LastFrame * 100;
+        get => (decimal)CurrentFrame / LastFrame;
         private set
         {
             if (value != ProgressPercent)
@@ -107,22 +116,30 @@ public class OpenCvService : ICVService
 
     public int CurrentFrame
     {
-        get => currentFrame;
+        get => _currentFrame;
         set
         {
-            currentFrame = value;
+            _currentFrame = value;
             ProgressChanged?.Invoke();
         }
     }
 
+    public decimal Fps { get; private set; }
+
     public int LastFrame
     {
-        get => lastFrame;
+        get => _lastFrame;
         set
         {
-            lastFrame = value;
+            _lastFrame = value;
             ProgressChanged?.Invoke();
         }
+    }
+
+    public TimeSpan FrameTime
+    {
+        get => _frameTime;
+        set { _frameTime = value; }
     }
 
     private List<Rect> GetBoundingBoxes(Mat frame, Mat scores, Mat geometry, float scoreThresh)
@@ -157,8 +174,9 @@ public class OpenCvService : ICVService
 
                 // Compute both the starting and ending (x, y)-coordinates
                 // for the text prediction bounding box
-                Point2f offset = new Point2f(offsetX + cos * geometry.At<float>(0, 1, y, x) - sin * geometry.At<float>(0, 2, y, x),
-                                             offsetY + sin * geometry.At<float>(0, 1, y, x) + cos * geometry.At<float>(0, 2, y, x));
+                Point2f offset = new Point2f(
+                    offsetX + cos * geometry.At<float>(0, 1, y, x) - sin * geometry.At<float>(0, 2, y, x),
+                    offsetY + sin * geometry.At<float>(0, 1, y, x) + cos * geometry.At<float>(0, 2, y, x));
                 Point2f p1 = new Point2f(-sin * h, -cos * h) + offset;
                 Point2f p3 = new Point2f(-cos * w, sin * w) + offset;
                 RotatedRect r = new RotatedRect((p1 + p3) * 0.5f, new Size2f(w, h), -angle * 180.0f / (float)Math.PI);
@@ -167,7 +185,8 @@ public class OpenCvService : ICVService
                 Rect boundingRect = r.BoundingRect();
 
                 // Draw the bounding rectangle on the frame
-                Point[] vertices = Array.ConvertAll(r.Points(), point => new Point((int)Math.Round(point.X), (int)Math.Round(point.Y)));
+                Point[] vertices = Array.ConvertAll(r.Points(),
+                    point => new Point((int)Math.Round(point.X), (int)Math.Round(point.Y)));
                 Cv2.Polylines(frame, new Point[][] { vertices }, true, Scalar.Red, 2);
 
                 // Ensure the bounding rectangle is within the frame

@@ -18,8 +18,7 @@ namespace OpenCVDemo
                 });
 
             // Register your services here
-            builder.Services.AddSingleton<IVideoProcessingService, VideoProcessingService>();
-            builder.Services.AddSingleton<ICVService, OpenCvService>();
+            builder.Services.AddSingleton<IVideoProcessingService, OpenCvService>();
             builder.Services.AddSingleton<VideoProcessingViewModel>();
             builder.Services.AddTransient<VideoProcessingPage>();
 

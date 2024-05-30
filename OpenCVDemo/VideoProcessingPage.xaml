@@ -7,7 +7,7 @@
              xmlns:viewModels="clr-namespace:OpenCVDemo.ViewModels"
              x:Class="OpenCVDemo.VideoProcessingPage"
              mc:Ignorable="d">
-    <ContentPage.Content>
+ <ContentPage.Content>
         <d:ContentPage.BindingContext>
             <viewModels:VideoProcessingViewModel />
         </d:ContentPage.BindingContext>
@@ -15,11 +15,12 @@
             <Button Text="Select File" Command="{Binding SelectFileCommand}" />
             <Label Text="{Binding VideoFilePath}" />
             <Button Text="Start Processing" Command="{Binding ProcessVideoCommand}" />
-            <ProgressBar Progress="{Binding ProgressPercent}"></ProgressBar>
+            <ProgressBar Progress="{Binding ProgressPercent}" IsVisible="{Binding IsProcessing}"></ProgressBar>
+            <Label Text="{Binding Fps, StringFormat='{0:F2} FPS'}" IsVisible="{Binding Source=IsProcessing}" />
+            <Label Text="{Binding EstimatedTimeRemaining, StringFormat='{0:d\.hh\:mm\:ss}'}" />
+            <!--<ListView ItemsSource="{Binding Detections}" SelectedItem="{Binding SelectedDetection}">
 
-            <ListView ItemsSource="{Binding Detections}" SelectedItem="{Binding SelectedDetection}">
-
-            </ListView>
+            </ListView>-->
 
             <!--<Image Source="{Binding SelectedDetection.Frame}" />-->
 
