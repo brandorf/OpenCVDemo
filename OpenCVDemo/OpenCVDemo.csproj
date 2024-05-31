@@ -73,6 +73,9 @@
 	</ItemGroup>
 
 	<ItemGroup>
+	  <None Update="AppSettings.json">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
 	  <None Update="Resources\frozen_east_text_detection.pb">
 	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 	  </None>

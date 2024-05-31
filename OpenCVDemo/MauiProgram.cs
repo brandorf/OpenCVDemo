@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using OpenCVDemo.Services;
 using OpenCVDemo.ViewModels;
 
@@ -17,7 +18,17 @@ namespace OpenCVDemo
                     fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
                 });
 
+
+            // Load configuration
+            var configBuilder = new ConfigurationBuilder()
+                .SetBasePath(AppContext.BaseDirectory)
+                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
+
+            var config = configBuilder.Build();
+
+
             // Register your services here
+            builder.Services.Configure<OpenCvServiceConfiguration>(config.GetSection("OpenCvServiceConfiguration"));
             builder.Services.AddSingleton<IVideoProcessingService, OpenCvService>();
             builder.Services.AddSingleton<VideoProcessingViewModel>();
             builder.Services.AddTransient<VideoProcessingPage>();

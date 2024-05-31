@@ -5,30 +5,34 @@ using OpenCvSharp;
 using Point = OpenCvSharp.Point;
 using Rect = OpenCvSharp.Rect;
 using Size = OpenCvSharp.Size;
+using Microsoft.Extensions.Options;
 
 namespace OpenCVDemo.Services;
 
 
 public class OpenCvService : IVideoProcessingService
 {
-    private const string ModelPath = "frozen_east_text_detection.pb";
     private int _currentFrame = 0;
     private int _lastFrame = 1;
     private TimeSpan _frameTime = TimeSpan.Zero;
+    private readonly OpenCvServiceConfiguration _config;
 
-    public OpenCvService()
+    public OpenCvService(IOptions<OpenCvServiceConfiguration> config)
     {
+        _config = config.Value;
         Detections = new List<Detection>();
     }
 
     public async Task ProcessVideo(string videoFilePath)
     {
+        Cv2.SetNumThreads(8);
+
         Detections.Clear();
 
         // Create a VideoCapture object from the video file
         using var video = new VideoCapture(videoFilePath);
 
-        var modelCombinedPath = Path.Combine(Path.Combine(AppContext.BaseDirectory, "Resources"), ModelPath);
+        var modelCombinedPath = Path.Combine(Path.Combine(AppContext.BaseDirectory, "Resources"), _config.ModelPath);
 
         // Load the pre-trained EAST model for text detection
         var net = CvDnn.ReadNet(modelCombinedPath);

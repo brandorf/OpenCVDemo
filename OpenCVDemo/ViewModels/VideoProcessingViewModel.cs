@@ -29,6 +29,7 @@ public class VideoProcessingViewModel : INotifyPropertyChanged
     }
 
     private bool _isProcessing;
+
     public bool IsProcessing
     {
         get => _isProcessing;
@@ -55,8 +56,21 @@ public class VideoProcessingViewModel : INotifyPropertyChanged
     public async void ProcessVideo()
     {
         IsProcessing = true;
-        Task.Run(() => _videoProcessingService.ProcessVideo(VideoFilePath));
-        IsProcessing = false;
+
+        var worker = new BackgroundWorker();
+
+        worker.DoWork += (sender, args) => _videoProcessingService.ProcessVideo(VideoFilePath);
+        worker.RunWorkerCompleted += (sender, args) =>
+        {
+            if (args.Error != null)
+            {
+                // Handle the error
+            }
+
+            IsProcessing = false;
+        };
+
+        worker.RunWorkerAsync();
     }
 
     private async Task SelectFile()
@@ -84,16 +98,13 @@ public class VideoProcessingViewModel : INotifyPropertyChanged
     }
 
     private ObservableCollection<Detection> _detections;
+
     public ObservableCollection<Detection> Detections
     {
         get => new ObservableCollection<Detection>(_videoProcessingService.Detections);
     }
 
-    public Detection SelectedDetection
-    {
-        get;
-        set;
-    }
+    public Detection SelectedDetection { get; set; }
 
     private void OnProgressChanged()
     {
