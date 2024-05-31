@@ -22,5 +22,5 @@ public interface IVideoProcessingService
     TimeSpan FrameTime { get; set; }
 
     event Action ProgressChanged;
-    event Action DetectionsChanged;
+    event Action<Detection>? DetectionsChanged;
 }

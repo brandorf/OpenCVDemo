@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using OpenCVDemo.Services;
 using OpenCvSharp;
+using OpenCvSharp.Internal.Vectors;
 using Rect = OpenCvSharp.Rect;
 
 namespace OpenCVDemo.ViewModels;
@@ -11,6 +12,24 @@ public class Detection
 {
     public Mat Frame { get; set; }
     public List<Rect> BoundingBoxes { get; set; }
+
+    public ImageSource FrameImageSource => ImageSource.FromStream(() => new MemoryStream(MatToBytes(Frame)));
+
+    private byte[] MatToBytes(Mat image)
+    {
+        Cv2.ImEncode(".png", image, out var vec);
+        byte[] result = vec.ToArray();
+        return result;
+    }
+    private Mat DrawBoundingBoxes()
+    {
+        foreach (var box in BoundingBoxes)
+        {
+            Cv2.Rectangle(Frame, box, Scalar.Green, 2);
+        }
+
+        return Frame;
+    }
 }
 
 public class VideoProcessingViewModel : INotifyPropertyChanged
@@ -56,6 +75,7 @@ public class VideoProcessingViewModel : INotifyPropertyChanged
     public async void ProcessVideo()
     {
         IsProcessing = true;
+        Detections.Clear();
 
         var worker = new BackgroundWorker();
 
@@ -97,14 +117,36 @@ public class VideoProcessingViewModel : INotifyPropertyChanged
         }
     }
 
-    private ObservableCollection<Detection> _detections;
+    private ObservableCollection<Detection> _detections = new ObservableCollection<Detection>();
+    private Detection _selectedDetection;
 
     public ObservableCollection<Detection> Detections
     {
-        get => new ObservableCollection<Detection>(_videoProcessingService.Detections);
+        get => _detections;
+        set
+        {
+            if (_detections != value)
+            {
+                _detections = value;
+                OnPropertyChanged();
+            }
+        }
     }
 
-    public Detection SelectedDetection { get; set; }
+    public Detection SelectedDetection
+
+    {
+        get => _selectedDetection;
+        set
+        {
+            if (Equals(value, _selectedDetection)) return;
+            _selectedDetection = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(SelectedDetectionImage));
+        }
+    }
+
+    public ImageSource SelectedDetectionImage => SelectedDetection?.FrameImageSource;
 
     private void OnProgressChanged()
     {
@@ -113,9 +155,13 @@ public class VideoProcessingViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(EstimatedTimeRemaining));
     }
 
-    private void OnDetectionsChanged()
+    private void OnDetectionsChanged(Detection newDetection)
     {
-        OnPropertyChanged(nameof(Detections));
+        // Update the Detections collection on the UI thread
+        Device.InvokeOnMainThreadAsync(() =>
+        {
+            Detections.Add(newDetection);
+        });
     }
 
     public decimal ProgressPercent => _videoProcessingService.ProgressPercent;

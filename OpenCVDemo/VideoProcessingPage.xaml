@@ -18,11 +18,13 @@
             <ProgressBar Progress="{Binding ProgressPercent}" IsVisible="{Binding IsProcessing}"></ProgressBar>
             <Label Text="{Binding FPS, StringFormat='{0:F2} FPS'}" />
             <Label Text="{Binding EstimatedTimeRemaining}" />
-            <!--<ListView ItemsSource="{Binding Detections}" SelectedItem="{Binding SelectedDetection}">
+            <StackLayout Orientation="Vertical">
+            <ListView ItemsSource="{Binding Detections}" SelectedItem="{Binding SelectedDetection}" HeightRequest="200"  WidthRequest="300">
 
-            </ListView>-->
+            </ListView>
 
-            <!--<Image Source="{Binding SelectedDetection.Frame}" />-->
+                <Image Source="{Binding SelectedDetectionImage}" HeightRequest="400"  WidthRequest="600" />
+            </StackLayout>
 
         </StackLayout>
     </ContentPage.Content>

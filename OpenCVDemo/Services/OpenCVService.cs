@@ -9,7 +9,6 @@ using Microsoft.Extensions.Options;
 
 namespace OpenCVDemo.Services;
 
-
 public class OpenCvService : IVideoProcessingService
 {
     private int _currentFrame = 0;
@@ -42,15 +41,13 @@ public class OpenCvService : IVideoProcessingService
         // Initialize the stopwatch
         var stopwatch = new Stopwatch();
 
+        Mat previousFrame = null;
         // Process each frame of the video
         using var frame = new Mat();
         while (true)
         {
             // Start the stopwatch
             stopwatch.Start();
-
-            var textRegions = new List<Rect>();
-
 
             // Read the next frame from the video
             // If the frame is null, then we have reached the end of the video
@@ -61,41 +58,76 @@ public class OpenCvService : IVideoProcessingService
 
             CurrentFrame = (int)video.PosFrames;
 
-            Debug.WriteLine($@"Processing Frame {CurrentFrame} of {LastFrame} : {ProgressPercent}%");
-
-            // Convert the frame to a blob to be used as input for the EAST model
-            var blob = CvDnn.BlobFromImage(frame, 1.0, new Size(320, 320), new Scalar(123.68, 116.78, 103.94), true,
-                false);
-
-
-            // Pass the blob through the network and obtain the detections and predictions
-            net.SetInput(blob);
-            net.SetPreferableBackend(Backend.OPENCV);
-            net.SetPreferableTarget(Target.OPENCL);
-            var scores = net.Forward("feature_fusion/Conv_7/Sigmoid");
-            var geometry = net.Forward("feature_fusion/concat_3");
-
-
-            var boxes = GetBoundingBoxes(frame, scores, geometry, 0.5f);
-
-            foreach (var box in boxes)
+            // If this is not the first frame and it is similar to the previous one, skip it
+            if (previousFrame == null || !AreFramesSimilar(frame, previousFrame))
             {
-                textRegions.Add(box);
-                Detections.Add(new Detection { Frame = frame, BoundingBoxes = new List<Rect>(textRegions) });
-                DetectionsCHanged?.Invoke();
-            }
+                // Get the original frame size
+                int originalWidth = frame.Width;
+                int originalHeight = frame.Height;
 
-            // Release the blob to free up memory
-            blob.Dispose();
+                // Calculate the largest possible dimensions that are multiples of 32
+                int width = originalWidth - (originalWidth % 32);
+                int height = originalHeight - (originalHeight % 32);
+
+                // Create a new Mat for the resized frame
+                Mat resizedFrame = new Mat();
+
+                // Resize the frame to the new dimensions
+                Cv2.Resize(frame, resizedFrame, new OpenCvSharp.Size(width, height));
+
+                // Convert the frame to a blob to be used as input for the EAST model
+                var blob = CvDnn.BlobFromImage(resizedFrame);
+
+
+                // Pass the blob through the network and obtain the detections and predictions
+                net.SetInput(blob);
+                net.SetPreferableBackend(Backend.OPENCV);
+                net.SetPreferableTarget(Target.OPENCL);
+                var scores = net.Forward("feature_fusion/Conv_7/Sigmoid");
+                var geometry = net.Forward("feature_fusion/concat_3");
+
+
+                var boxes = GetBoundingBoxes(resizedFrame, scores, geometry, 0.5f);
+
+                var textRegions = new List<Rect>();
+                foreach (var box in boxes)
+                {
+                    textRegions.Add(box);
+                    Cv2.Rectangle(resizedFrame, box, Scalar.Green, 2);
+                }
+
+                var newDetection = new Detection { Frame = resizedFrame, BoundingBoxes = new List<Rect>(textRegions) };
+
+                // If Detections list is not empty, compare newDetection with the last one
+                if (Detections.Any())
+                {
+                    var lastDetection = Detections.Last();
+
+                    // Define your comparison logic here. This is just a simple example.
+                    if (AreSimilar(newDetection, lastDetection))
+                    {
+                        continue;
+                    }
+                }
+
+                Detections.Add(newDetection);
+                DetectionsChanged?.Invoke(newDetection);
+
+                previousFrame = frame.Clone();
+                // Release the blob to free up memory
+                blob.Dispose();
+
+            }
 
             stopwatch.Stop();
 
-            _frameTime = stopwatch.Elapsed;
-            // Calculate the frames per second
-            Fps = 1.0M / (decimal)stopwatch.Elapsed.TotalSeconds;
+                _frameTime = stopwatch.Elapsed;
+                // Calculate the frames per second
+                Fps = 1.0M / (decimal)stopwatch.Elapsed.TotalSeconds;
 
-            // Reset the stopwatch for the next frame
-            stopwatch.Reset();
+                // Reset the stopwatch for the next frame
+                stopwatch.Reset();
+            
         }
     }
 
@@ -103,8 +135,7 @@ public class OpenCvService : IVideoProcessingService
 
     public decimal FPS { get; }
     public event Action ProgressChanged;
-    public event Action? DetectionsChanged;
-    public event Action? DetectionsCHanged;
+    public event Action<Detection>? DetectionsChanged;
 
     public decimal ProgressPercent
     {
@@ -188,11 +219,6 @@ public class OpenCvService : IVideoProcessingService
                 // Get the bounding rectangle of the rotated rectangle
                 Rect boundingRect = r.BoundingRect();
 
-                // Draw the bounding rectangle on the frame
-                Point[] vertices = Array.ConvertAll(r.Points(),
-                    point => new Point((int)Math.Round(point.X), (int)Math.Round(point.Y)));
-                Cv2.Polylines(frame, new Point[][] { vertices }, true, Scalar.Red, 2);
-
                 // Ensure the bounding rectangle is within the frame
                 boundingRect = Rect.Intersect(boundingRect, new Rect(0, 0, frame.Width, frame.Height));
 
@@ -200,10 +226,65 @@ public class OpenCvService : IVideoProcessingService
                 if (boundingRect.Width <= 0 || boundingRect.Height <= 0)
                     continue;
 
+                // Draw the bounding rectangle on the frame
+                //Cv2.Rectangle(frame, boundingRect, Scalar.Red, 2);
+
                 boundingBoxes.Add(boundingRect);
             }
         }
 
         return boundingBoxes;
     }
+
+    private bool AreSimilar(Detection detection1, Detection detection2)
+    {
+        // Compare the number of bounding boxes
+        if (detection1.BoundingBoxes.Count != detection2.BoundingBoxes.Count)
+        {
+            return false;
+        }
+
+        // Compare each bounding box
+        for (int i = 0; i < detection1.BoundingBoxes.Count; i++)
+        {
+            if (!BoundingBoxesEquivalent(detection1.BoundingBoxes, detection2.BoundingBoxes))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private bool BoundingBoxesEquivalent( IList<Rect> first, IList<Rect> second)
+    {
+        // If the arrays are not the same length, they are not equal
+        if (first.Count != second.Count)
+        {
+            return false;
+        }
+
+        // Compare each Rect in the arrays
+        for (int i = 0; i < first.Count; i++)
+        {
+            if (first[i].X != second[i].X || first[i].Y != second[i].Y ||
+                first[i].Width != second[i].Width || first[i].Height != second[i].Height)
+            {
+                return false;
+            }
+        }
+
+        // If all Rects are equal, the arrays are equal
+        return true;
+    }
+
+    public bool AreFramesSimilar(Mat frame1, Mat frame2)
+    {
+        using var diff = new Mat();
+        Cv2.Absdiff(frame1, frame2, diff);
+        Scalar avg = Cv2.Mean(diff);
+        return avg.Val0 < 5;
+    }
+
+
 }
