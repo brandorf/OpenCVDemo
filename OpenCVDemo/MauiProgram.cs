@@ -30,7 +30,8 @@ namespace OpenCVDemo
             // Register your services here
             builder.Services.Configure<EastOpenCvServiceConfiguration>(config.GetSection("EastOpenCvServiceConfiguration"));
             builder.Services.Configure<TextBoxPlusPlusOpenCvServiceConfiguration>(config.GetSection("TextBoxPlusPlusOpenCvServiceConfiguration"));
-            builder.Services.AddSingleton<IVideoProcessingService, TextBoxPlusPlusOpenCvService>();
+            builder.Services.Configure<TextDetectorOpenCvServiceConfiguration>(config.GetSection("TextDetectorOpenCvServiceConfiguration"));
+            builder.Services.AddSingleton<IVideoProcessingService, TextDetectorOpenCvService>();
             builder.Services.AddSingleton<VideoProcessingViewModel>();
             builder.Services.AddTransient<VideoProcessingPage>();
 
