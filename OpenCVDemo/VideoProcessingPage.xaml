@@ -23,7 +23,7 @@
 
             </ListView>
 
-                <Image Source="{Binding SelectedDetectionImage}" HeightRequest="400"  WidthRequest="600" />
+                <Image Source="{Binding SelectedDetectionImage}" HeightRequest="720"  WidthRequest="1280" />
             </StackLayout>
 
         </StackLayout>

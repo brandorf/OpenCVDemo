@@ -9,14 +9,14 @@ using Microsoft.Extensions.Options;
 
 namespace OpenCVDemo.Services;
 
-public class OpenCvService : IVideoProcessingService
+public class EastOpenCvService : IVideoProcessingService
 {
     private int _currentFrame = 0;
     private int _lastFrame = 1;
     private TimeSpan _frameTime = TimeSpan.Zero;
-    private readonly OpenCvServiceConfiguration _config;
+    private readonly EastOpenCvServiceConfiguration _config;
 
-    public OpenCvService(IOptions<OpenCvServiceConfiguration> config)
+    public EastOpenCvService(IOptions<EastOpenCvServiceConfiguration> config)
     {
         _config = config.Value;
         Detections = new List<Detection>();
@@ -87,7 +87,7 @@ public class OpenCvService : IVideoProcessingService
                 var geometry = net.Forward("feature_fusion/concat_3");
 
 
-                var boxes = GetBoundingBoxes(resizedFrame, scores, geometry, 0.5f);
+                var boxes = GetBoundingBoxes(resizedFrame, scores, geometry, _config.ConfidenceThreshold);
 
                 var textRegions = new List<Rect>();
                 foreach (var box in boxes)
@@ -180,6 +180,7 @@ public class OpenCvService : IVideoProcessingService
     private List<Rect> GetBoundingBoxes(Mat frame, Mat scores, Mat geometry, float scoreThresh)
     {
         List<Rect> boundingBoxes = new List<Rect>();
+        List<float> confidences = new List<float>();
 
         for (int y = 0; y < scores.Size(2); y++)
         {
@@ -226,14 +227,16 @@ public class OpenCvService : IVideoProcessingService
                 if (boundingRect.Width <= 0 || boundingRect.Height <= 0)
                     continue;
 
-                // Draw the bounding rectangle on the frame
-                //Cv2.Rectangle(frame, boundingRect, Scalar.Red, 2);
-
                 boundingBoxes.Add(boundingRect);
+                confidences.Add(score);
             }
         }
 
-        return boundingBoxes;
+        // Apply non-maximum suppression
+        CvDnn.NMSBoxes(boundingBoxes, confidences, scoreThresh, _config.NMSThreshold, out var indices);
+
+        // Return only the bounding boxes that were not suppressed
+        return indices.Select(index => boundingBoxes[index]).ToList();
     }
 
     private bool AreSimilar(Detection detection1, Detection detection2)
