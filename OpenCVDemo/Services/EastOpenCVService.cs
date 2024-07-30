@@ -61,62 +61,24 @@ public class EastOpenCvService : IVideoProcessingService
             // If this is not the first frame and it is similar to the previous one, skip it
             if (previousFrame == null || !AreFramesSimilar(frame, previousFrame))
             {
-                // Get the original frame size
-                int originalWidth = frame.Width;
-                int originalHeight = frame.Height;
-
-                // Calculate the largest possible dimensions that are multiples of 32
-                int width = originalWidth - (originalWidth % 32);
-                int height = originalHeight - (originalHeight % 32);
-
-                // Create a new Mat for the resized frame
-                Mat resizedFrame = new Mat();
-
-                // Resize the frame to the new dimensions
-                Cv2.Resize(frame, resizedFrame, new OpenCvSharp.Size(width, height));
-
-                // Convert the frame to a blob to be used as input for the EAST model
-                var blob = CvDnn.BlobFromImage(resizedFrame);
-
-
-                // Pass the blob through the network and obtain the detections and predictions
-                net.SetInput(blob);
-                net.SetPreferableBackend(Backend.OPENCV);
-                net.SetPreferableTarget(Target.OPENCL);
-                var scores = net.Forward("feature_fusion/Conv_7/Sigmoid");
-                var geometry = net.Forward("feature_fusion/concat_3");
-
-
-                var boxes = GetBoundingBoxes(resizedFrame, scores, geometry, _config.ConfidenceThreshold);
-
-                var textRegions = new List<Rect>();
-                foreach (var box in boxes)
-                {
-                    textRegions.Add(box);
-                    Cv2.Rectangle(resizedFrame, box, Scalar.Green, 2);
-                }
-
-                var newDetection = new Detection { Frame = resizedFrame, BoundingBoxes = new List<Rect>(textRegions) };
-
-                // If Detections list is not empty, compare newDetection with the last one
+                var newDetection = ProcessSingleFrame(frame);
+                
                 if (Detections.Any())
                 {
                     var lastDetection = Detections.Last();
-
-                    // Define your comparison logic here. This is just a simple example.
-                    if (AreSimilar(newDetection, lastDetection))
+                    if (!AreSimilar(newDetection, lastDetection))
                     {
-                        continue;
+                        Detections.Add(newDetection);
+                        DetectionsChanged?.Invoke(newDetection);
                     }
                 }
-
-                Detections.Add(newDetection);
-                DetectionsChanged?.Invoke(newDetection);
-
+                else
+                {
+                    Detections.Add(newDetection);
+                    DetectionsChanged?.Invoke(newDetection);
+                }
+                
                 previousFrame = frame.Clone();
-                // Release the blob to free up memory
-                blob.Dispose();
-
             }
 
             stopwatch.Stop();
@@ -129,6 +91,72 @@ public class EastOpenCvService : IVideoProcessingService
                 stopwatch.Reset();
             
         }
+    }
+
+    public Detection ProcessSingleFrame(ImageSource image, float? confidenceOverride = null, Scalar? colorOverride = null)
+    {
+        return ProcessSingleFrame(ImageSourceToMat(image), confidenceOverride, colorOverride);
+    }
+    
+    public Mat ImageSourceToMat(ImageSource imageSource)
+    {
+        if (imageSource is StreamImageSource streamImageSource)
+        {
+            // Get the stream from the StreamImageSource
+            using Stream imageStream = ((IStreamImageSource)streamImageSource).GetStreamAsync().ConfigureAwait(false).GetAwaiter().GetResult();
+           if (imageStream == null) return null;
+
+            // Convert stream to byte array
+            using var memoryStream = new MemoryStream();
+            imageStream.CopyTo(memoryStream);
+            byte[] imageData = memoryStream.ToArray();
+
+            // Decode the byte array to a Mat object
+            Mat imageMat = Cv2.ImDecode(imageData, ImreadModes.Color);
+
+            return imageMat;
+        }
+        else
+        {
+            // Handle other types of ImageSource if necessary
+            throw new NotImplementedException("Only StreamImageSource is supported in this example.");
+        }
+    }
+    
+    private Detection ProcessSingleFrame(Mat frame, float? confidenceOverride = null, Scalar? colorOverride = null)
+    {
+        if (frame.Empty())
+        {
+            throw new ArgumentException("The frame is empty.", nameof(frame));
+        }
+
+        int originalWidth = frame.Width;
+        int originalHeight = frame.Height;
+        int width = originalWidth - (originalWidth % 32);
+        int height = originalHeight - (originalHeight % 32);
+
+        Mat resizedFrame = new Mat();
+        Cv2.Resize(frame, resizedFrame, new Size(width, height));
+
+        var blob = CvDnn.BlobFromImage(resizedFrame);
+        var net = CvDnn.ReadNet(Path.Combine(AppContext.BaseDirectory, "Resources", _config.ModelPath));
+        net.SetInput(blob);
+        net.SetPreferableBackend(Backend.OPENCV);
+        net.SetPreferableTarget(Target.OPENCL);
+
+        var scores = net.Forward("feature_fusion/Conv_7/Sigmoid");
+        var geometry = net.Forward("feature_fusion/concat_3");
+
+        var boxes = GetBoundingBoxes(resizedFrame, scores, geometry, confidenceOverride.HasValue ? confidenceOverride.Value : _config.ConfidenceThreshold);
+
+        var textRegions = new List<Rect>();
+        foreach (var box in boxes)
+        {
+            textRegions.Add(box);
+            Cv2.Rectangle(resizedFrame, box, colorOverride.HasValue ? colorOverride.Value : Scalar.Green, 2);
+        }
+
+        return new Detection { Frame = resizedFrame, BoundingBoxes = new List<Rect>(textRegions) };
     }
 
     public List<Detection> Detections { get; private set; }

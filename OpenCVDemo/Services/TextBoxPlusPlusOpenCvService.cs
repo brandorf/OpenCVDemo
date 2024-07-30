@@ -23,6 +23,11 @@ public class TextBoxPlusPlusOpenCvService : IVideoProcessingService
         Detections = new List<Detection>();
     }
 
+    public Detection ProcessSingleFrame(ImageSource image, float? confidenceOverride = null, Scalar? colorOverride = null)
+    {
+        throw new NotImplementedException();
+    }
+
     public List<Detection> Detections { get; private set; }
 
     public decimal FPS { get; }

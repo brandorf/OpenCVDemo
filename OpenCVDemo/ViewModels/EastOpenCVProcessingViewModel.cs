@@ -10,6 +10,12 @@ namespace OpenCVDemo.ViewModels;
 
 public class Detection
 {
+    public Detection()
+    {
+        this.Id = Guid.NewGuid();
+    }
+
+    public Guid Id { get; private set; }
     public Mat Frame { get; set; }
     public List<Rect> BoundingBoxes { get; set; }
 
@@ -21,6 +27,7 @@ public class Detection
         byte[] result = vec.ToArray();
         return result;
     }
+
     private Mat DrawBoundingBoxes()
     {
         foreach (var box in BoundingBoxes)
@@ -30,15 +37,26 @@ public class Detection
 
         return Frame;
     }
+
+    public override string ToString()
+    {
+        return $"{Id}: Detections [{BoundingBoxes.Count}]";
+    }
 }
 
-public class VideoProcessingViewModel : INotifyPropertyChanged
+public class EastOpenCVProcessingViewModel : INotifyPropertyChanged
 {
     private readonly IVideoProcessingService _videoProcessingService;
-    private string _videoFilePath;
-    private string _processingResult;
+    private float _confidence;
 
-    public VideoProcessingViewModel(IVideoProcessingService videoProcessingService)
+    private ObservableCollection<Detection> _detections = new ObservableCollection<Detection>();
+
+    private bool _isProcessing;
+    private string _processingResult;
+    private Detection _selectedDetection;
+    private string _videoFilePath;
+
+    public EastOpenCVProcessingViewModel(IVideoProcessingService videoProcessingService)
     {
         _videoProcessingService = videoProcessingService;
         _videoProcessingService.ProgressChanged += OnProgressChanged;
@@ -46,8 +64,6 @@ public class VideoProcessingViewModel : INotifyPropertyChanged
         SelectFileCommand = new Command(async () => await SelectFile());
         ProcessVideoCommand = new Command(ProcessVideo, CanProcessVideo);
     }
-
-    private bool _isProcessing;
 
     public bool IsProcessing
     {
@@ -63,14 +79,85 @@ public class VideoProcessingViewModel : INotifyPropertyChanged
         }
     }
 
+    public Command ProcessVideoCommand { get; set; }
+
+    public Command SelectFileCommand { get; set; }
+
+    public string VideoFilePath
+    {
+        get => _videoFilePath;
+        set
+        {
+            if (value == _videoFilePath) return;
+            _videoFilePath = value;
+            OnPropertyChanged();
+            ProcessVideoCommand.ChangeCanExecute();
+        }
+    }
+
+    public ObservableCollection<Detection> Detections
+    {
+        get => _detections;
+        set => _detections = value;
+    }
+
+    public Detection SelectedDetection
+
+    {
+        get => _selectedDetection;
+        set
+        {
+            if (Equals(value, _selectedDetection)) return;
+            _selectedDetection = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(SelectedDetectionImage));
+            Console.WriteLine($"Changed selected detection to {value}");
+        }
+    }
+
+    public ImageSource SelectedDetectionImage => SelectedDetection?.FrameImageSource;
+
+    public decimal ProgressPercent => _videoProcessingService.ProgressPercent;
+    public decimal FPS => _videoProcessingService.Fps;
+
+    public float Confidence
+    {
+        get => _confidence;
+        set
+        {
+            if (_confidence == value) return;
+            _confidence = value;
+            OnPropertyChanged();
+
+            // Process the frame in the background
+            Task.Run(() =>
+            {
+                var processedDetection = _videoProcessingService.ProcessSingleFrame(SelectedDetectionImage, _confidence);
+
+                // Dispatch the UI update back to the UI thread
+                Device.InvokeOnMainThreadAsync(() =>
+                {
+                    SelectedDetection = processedDetection;
+                });
+            });
+        }
+    }
+
+    public TimeSpan EstimatedTimeRemaining
+    {
+        get
+        {
+            var framesRemaining = _videoProcessingService.LastFrame - _videoProcessingService.CurrentFrame;
+            return TimeSpan.FromTicks((long)(framesRemaining * _videoProcessingService.FrameTime.Ticks));
+        }
+    }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
     private bool CanProcessVideo()
     {
         return !IsProcessing && !String.IsNullOrWhiteSpace(VideoFilePath);
     }
-
-    public Command ProcessVideoCommand { get; set; }
-
-    public Command SelectFileCommand { get; set; }
 
     public async void ProcessVideo()
     {
@@ -105,49 +192,6 @@ public class VideoProcessingViewModel : INotifyPropertyChanged
         }
     }
 
-    public string VideoFilePath
-    {
-        get => _videoFilePath;
-        set
-        {
-            if (value == _videoFilePath) return;
-            _videoFilePath = value;
-            OnPropertyChanged();
-            ProcessVideoCommand.ChangeCanExecute();
-        }
-    }
-
-    private ObservableCollection<Detection> _detections = new ObservableCollection<Detection>();
-    private Detection _selectedDetection;
-
-    public ObservableCollection<Detection> Detections
-    {
-        get => _detections;
-        set
-        {
-            if (_detections != value)
-            {
-                _detections = value;
-                OnPropertyChanged();
-            }
-        }
-    }
-
-    public Detection SelectedDetection
-
-    {
-        get => _selectedDetection;
-        set
-        {
-            if (Equals(value, _selectedDetection)) return;
-            _selectedDetection = value;
-            OnPropertyChanged();
-            OnPropertyChanged(nameof(SelectedDetectionImage));
-        }
-    }
-
-    public ImageSource SelectedDetectionImage => SelectedDetection?.FrameImageSource;
-
     private void OnProgressChanged()
     {
         OnPropertyChanged(nameof(ProgressPercent));
@@ -163,20 +207,6 @@ public class VideoProcessingViewModel : INotifyPropertyChanged
             Detections.Add(newDetection);
         });
     }
-
-    public decimal ProgressPercent => _videoProcessingService.ProgressPercent;
-    public decimal FPS => _videoProcessingService.Fps;
-
-    public TimeSpan EstimatedTimeRemaining
-    {
-        get
-        {
-            var framesRemaining = _videoProcessingService.LastFrame - _videoProcessingService.CurrentFrame;
-            return TimeSpan.FromTicks((long)(framesRemaining * _videoProcessingService.FrameTime.Ticks));
-        }
-    }
-
-    public event PropertyChangedEventHandler? PropertyChanged;
 
     protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
     {

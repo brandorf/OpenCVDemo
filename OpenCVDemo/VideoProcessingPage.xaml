@@ -9,7 +9,7 @@
              mc:Ignorable="d">
  <ContentPage.Content>
         <d:ContentPage.BindingContext>
-            <viewModels:VideoProcessingViewModel />
+            <viewModels:EastOpenCVProcessingViewModel />
         </d:ContentPage.BindingContext>
         <StackLayout>
             <Button Text="Select File" Command="{Binding SelectFileCommand}" />
@@ -22,7 +22,8 @@
             <ListView ItemsSource="{Binding Detections}" SelectedItem="{Binding SelectedDetection}" HeightRequest="200"  WidthRequest="300">
 
             </ListView>
-
+                <Label Text="{Binding Confidence, StringFormat='{0:F2}'}" />
+                <Slider Value="{Binding Confidence}"></Slider>
                 <Image Source="{Binding SelectedDetectionImage}" HeightRequest="720"  WidthRequest="1280" />
             </StackLayout>
 

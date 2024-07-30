@@ -13,6 +13,7 @@ namespace OpenCVDemo.Services;
 public interface IVideoProcessingService
 {
     Task ProcessVideo(string videoFilePath);
+    Detection ProcessSingleFrame(ImageSource image, float? confidenceOverride = null, Scalar? colorOverride = null);
     List<Detection> Detections { get; }
     decimal ProgressPercent { get; }
 

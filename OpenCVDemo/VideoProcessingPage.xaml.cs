@@ -10,7 +10,7 @@ namespace OpenCVDemo;
 
 public partial class VideoProcessingPage : ContentPage
 {
-    public VideoProcessingPage(VideoProcessingViewModel vm)
+    public VideoProcessingPage(EastOpenCVProcessingViewModel vm)
         {
             InitializeComponent();
             BindingContext = vm;
