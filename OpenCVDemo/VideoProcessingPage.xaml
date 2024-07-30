@@ -15,6 +15,7 @@
             <Button Text="Select File" Command="{Binding SelectFileCommand}" />
             <Label Text="{Binding VideoFilePath}" />
             <Button Text="Start Processing" Command="{Binding ProcessVideoCommand}" />
+            <Label Text="{Binding ProcessingMessage}" />
             <ProgressBar Progress="{Binding ProgressPercent}" IsVisible="{Binding IsProcessing}"></ProgressBar>
             <Label Text="{Binding FPS, StringFormat='{0:F2} FPS'}" />
             <Label Text="{Binding EstimatedTimeRemaining}" />
@@ -22,8 +23,8 @@
             <ListView ItemsSource="{Binding Detections}" SelectedItem="{Binding SelectedDetection}" HeightRequest="200"  WidthRequest="300">
 
             </ListView>
-                <Label Text="{Binding Confidence, StringFormat='{0:F2}'}" />
-                <Slider Value="{Binding Confidence}"></Slider>
+                <!-- <Label Text="{Binding Confidence, StringFormat='{0:F2}'}" /> -->
+                <!-- <Slider Value="{Binding Confidence}"></Slider> -->
                 <Image Source="{Binding SelectedDetectionImage}" HeightRequest="720"  WidthRequest="1280" />
             </StackLayout>
 

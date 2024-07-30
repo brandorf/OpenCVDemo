@@ -120,29 +120,7 @@ public class EastOpenCVProcessingViewModel : INotifyPropertyChanged
     public decimal ProgressPercent => _videoProcessingService.ProgressPercent;
     public decimal FPS => _videoProcessingService.Fps;
 
-    public float Confidence
-    {
-        get => _confidence;
-        set
-        {
-            if (_confidence == value) return;
-            _confidence = value;
-            OnPropertyChanged();
-
-            // Process the frame in the background
-            Task.Run(() =>
-            {
-                var processedDetection = _videoProcessingService.ProcessSingleFrame(SelectedDetectionImage, _confidence);
-
-                // Dispatch the UI update back to the UI thread
-                Device.InvokeOnMainThreadAsync(() =>
-                {
-                    SelectedDetection = processedDetection;
-                });
-            });
-        }
-    }
-
+    public string ProcessingMessage => $"Processing frame {_videoProcessingService.CurrentFrame} of {_videoProcessingService.LastFrame}";
     public TimeSpan EstimatedTimeRemaining
     {
         get
@@ -197,6 +175,7 @@ public class EastOpenCVProcessingViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(ProgressPercent));
         OnPropertyChanged(nameof(FPS));
         OnPropertyChanged(nameof(EstimatedTimeRemaining));
+        OnPropertyChanged(nameof(ProcessingMessage));
     }
 
     private void OnDetectionsChanged(Detection newDetection)
@@ -211,13 +190,5 @@ public class EastOpenCVProcessingViewModel : INotifyPropertyChanged
     protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-    }
-
-    protected bool SetField<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
-    {
-        if (EqualityComparer<T>.Default.Equals(field, value)) return false;
-        field = value;
-        OnPropertyChanged(propertyName);
-        return true;
     }
 }

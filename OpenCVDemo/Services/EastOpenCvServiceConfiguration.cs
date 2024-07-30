@@ -7,4 +7,6 @@ public class EastOpenCvServiceConfiguration
     public float ConfidenceThreshold { get; set; }
 
     public float NMSThreshold { get; set; }
+    public float FrameSimilarityThreshold { get; set; }
+    public bool UseGpuAcceleration { get; set; }
 }

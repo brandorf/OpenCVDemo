@@ -11,6 +11,7 @@ namespace OpenCVDemo.Services;
 
 public class EastOpenCvService : IVideoProcessingService
 {
+    private readonly DetectionSettings _detectionSettings;
     private int _currentFrame = 0;
     private int _lastFrame = 1;
     private TimeSpan _frameTime = TimeSpan.Zero;
@@ -18,6 +19,7 @@ public class EastOpenCvService : IVideoProcessingService
 
     public EastOpenCvService(IOptions<EastOpenCvServiceConfiguration> config)
     {
+       // _detectionSettings = detectionSettings;
         _config = config.Value;
         Detections = new List<Detection>();
     }
@@ -58,7 +60,7 @@ public class EastOpenCvService : IVideoProcessingService
 
             CurrentFrame = (int)video.PosFrames;
 
-            // If this is not the first frame and it is similar to the previous one, skip it
+            // If this is not the first frame, and it is similar to the previous one, skip it
             if (previousFrame == null || !AreFramesSimilar(frame, previousFrame))
             {
                 var newDetection = ProcessSingleFrame(frame);
@@ -140,6 +142,19 @@ public class EastOpenCvService : IVideoProcessingService
 
         var blob = CvDnn.BlobFromImage(resizedFrame);
         var net = CvDnn.ReadNet(Path.Combine(AppContext.BaseDirectory, "Resources", _config.ModelPath));
+        
+        // Set the backend and target for the network
+        net.SetPreferableBackend(Backend.VKCOM);
+        net.SetPreferableTarget(Target.CPU); // or Target.CUDA for CUDA target
+
+        // Check the backend and target
+
+        //bool isHardwareAccelerated = (backend == Backend.CUDA || backend == Backend.OPENCV) &&
+        //                             (target == Target.CUDA || target == Target.OPENCL);
+
+        //Console.WriteLine($"Is hardware acceleration enabled: {isHardwareAccelerated}");        
+        
+        
         net.SetInput(blob);
         net.SetPreferableBackend(Backend.OPENCV);
         net.SetPreferableTarget(Target.OPENCL);
@@ -314,7 +329,7 @@ public class EastOpenCvService : IVideoProcessingService
         using var diff = new Mat();
         Cv2.Absdiff(frame1, frame2, diff);
         Scalar avg = Cv2.Mean(diff);
-        return avg.Val0 < 5;
+        return avg.Val0 < _config.FrameSimilarityThreshold;
     }
 
 
