@@ -47,6 +47,7 @@ public class Detection
 public class EastOpenCVProcessingViewModel : INotifyPropertyChanged
 {
     private readonly IVideoProcessingService _videoProcessingService;
+    private readonly OCRService _ocrService;
     private float _confidence;
 
     private ObservableCollection<Detection> _detections = new ObservableCollection<Detection>();
@@ -56,13 +57,15 @@ public class EastOpenCVProcessingViewModel : INotifyPropertyChanged
     private Detection _selectedDetection;
     private string _videoFilePath;
 
-    public EastOpenCVProcessingViewModel(IVideoProcessingService videoProcessingService)
+    public EastOpenCVProcessingViewModel(IVideoProcessingService videoProcessingService, OCRService ocrService)
     {
         _videoProcessingService = videoProcessingService;
+        _ocrService = ocrService;
         _videoProcessingService.ProgressChanged += OnProgressChanged;
         _videoProcessingService.DetectionsChanged += OnDetectionsChanged;
         SelectFileCommand = new Command(async () => await SelectFile());
         ProcessVideoCommand = new Command(ProcessVideo, CanProcessVideo);
+        
     }
 
     public bool IsProcessing
@@ -100,6 +103,8 @@ public class EastOpenCVProcessingViewModel : INotifyPropertyChanged
         get => _detections;
         set => _detections = value;
     }
+    
+    public string SelectedTextDetection { get; set; }
 
     public Detection SelectedDetection
 
@@ -112,6 +117,24 @@ public class EastOpenCVProcessingViewModel : INotifyPropertyChanged
             OnPropertyChanged();
             OnPropertyChanged(nameof(SelectedDetectionImage));
             Console.WriteLine($"Changed selected detection to {value}");
+
+                var worker = new BackgroundWorker();
+
+                worker.DoWork += (sender, args) => args.Result = _ocrService.Detect(_selectedDetection.Frame);
+                worker.RunWorkerCompleted += (sender, args) =>
+                {
+                    if (args.Error != null)
+                    {
+                        // Handle the error
+                    }
+                    SelectedTextDetection = args.Result.ToString();
+                    OnPropertyChanged(nameof(SelectedTextDetection));
+                    IsProcessing = false;
+                };
+
+                worker.RunWorkerAsync();
+            
+            
         }
     }
 

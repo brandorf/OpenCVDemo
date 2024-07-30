@@ -94,6 +94,9 @@
 	  <None Update="Resources\TextBoxes_icdar13.caffemodel">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </None>
+	  <None Update="Resources\eng.traineddata">
+	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	  </None>
 	</ItemGroup>
 
 	<ItemGroup>

@@ -19,13 +19,25 @@
             <ProgressBar Progress="{Binding ProgressPercent}" IsVisible="{Binding IsProcessing}"></ProgressBar>
             <Label Text="{Binding FPS, StringFormat='{0:F2} FPS'}" />
             <Label Text="{Binding EstimatedTimeRemaining}" />
-            <StackLayout Orientation="Vertical">
-            <ListView ItemsSource="{Binding Detections}" SelectedItem="{Binding SelectedDetection}" HeightRequest="200"  WidthRequest="300">
-
-            </ListView>
-                <!-- <Label Text="{Binding Confidence, StringFormat='{0:F2}'}" /> -->
-                <!-- <Slider Value="{Binding Confidence}"></Slider> -->
-                <Image Source="{Binding SelectedDetectionImage}" HeightRequest="720"  WidthRequest="1280" />
+            <StackLayout Orientation="Horizontal">
+                <Border Stroke="#white"
+                        StrokeThickness="2"
+                        Background="#darkslategray"
+                        Padding="5">
+                <ListView Width="200" ItemsSource="{Binding Detections}" SelectedItem="{Binding SelectedDetection}" />
+                </Border>
+                <Border Stroke="#white"
+                        StrokeThickness="2"
+                        Background="#darkslategray"
+                        Padding="5">
+                <Image Source="{Binding SelectedDetectionImage}" HeightRequest="780" />
+                </Border>
+                <Border Stroke="#white"
+                        StrokeThickness="2"
+                        Background="#darkslategray"
+                        Padding="5">
+                <Label Text="{ Binding SelectedTextDetection, FallbackValue=Text}" Width="300" ></Label>
+                    </Border>
             </StackLayout>
 
         </StackLayout>

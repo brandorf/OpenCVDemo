@@ -33,6 +33,7 @@ namespace OpenCVDemo
             builder.Services.Configure<TextDetectorOpenCvServiceConfiguration>(config.GetSection("TextDetectorOpenCvServiceConfiguration"));
             builder.Services.AddSingleton<IVideoProcessingService, EastOpenCvService>();
             builder.Services.AddSingleton<EastOpenCVProcessingViewModel>();
+            builder.Services.AddSingleton<OCRService>();
             builder.Services.AddTransient<VideoProcessingPage>();
 
 #if DEBUG
